@@ -14,11 +14,15 @@ const OpenAIClient = require('~/app/clients/OpenAIClient');
 const { isUserProvided } = require('~/server/utils');
 const getLogStores = require('~/cache/getLogStores');
 
+const tokenExchangeManager = require('../../tokenExchange');
+
 const { PROXY } = process.env;
 
 const initializeClient = async ({ req, res, endpointOption, optionsOnly, overrideEndpoint }) => {
   const { key: expiresAt } = req.body;
   const endpoint = overrideEndpoint ?? req.body.endpoint;
+  
+  console.info(`[initialize] Starting initialization for endpoint: ${endpoint}`);
 
   const endpointConfig = await getCustomEndpointConfig(endpoint);
   if (!endpointConfig) {
@@ -29,14 +33,6 @@ const initializeClient = async ({ req, res, endpointOption, optionsOnly, overrid
   const CUSTOM_BASE_URL = extractEnvVariable(endpointConfig.baseURL);
 
   let resolvedHeaders = resolveHeaders(endpointConfig.headers, req.user);
-
-  if (CUSTOM_API_KEY.match(envVarRegex)) {
-    throw new Error(`Missing API Key for ${endpoint}.`);
-  }
-
-  if (CUSTOM_BASE_URL.match(envVarRegex)) {
-    throw new Error(`Missing Base URL for ${endpoint}.`);
-  }
 
   const userProvidesKey = isUserProvided(CUSTOM_API_KEY);
   const userProvidesURL = isUserProvided(CUSTOM_BASE_URL);
@@ -49,6 +45,27 @@ const initializeClient = async ({ req, res, endpointOption, optionsOnly, overrid
 
   let apiKey = userProvidesKey ? userValues?.apiKey : CUSTOM_API_KEY;
   let baseURL = userProvidesURL ? userValues?.baseURL : CUSTOM_BASE_URL;
+
+  // Try Token Exchange BEFORE validation checks
+  if (process.env.ENABLE_TOKEN_EXCHANGE_FOR_CUSTOM === 'true' && tokenExchangeManager.isEnabled()) {
+    console.debug('[initialize] Token Exchange enabled, checking if this is our API:', baseURL);
+    const exchangedToken = await tokenExchangeManager.getApiTokenForRequest(req, apiKey, baseURL);
+    if (exchangedToken && exchangedToken !== apiKey) {
+      console.info('[initialize] Using OIDC token for our API endpoint');
+      apiKey = exchangedToken;
+    } else {
+      console.debug('[initialize] Using default API key (no OIDC token or not our API)');
+    }
+  }
+
+  // Now check if we have valid apiKey and baseURL after token exchange
+  if (!apiKey || (CUSTOM_API_KEY.match(envVarRegex) && apiKey === CUSTOM_API_KEY)) {
+    throw new Error(`Missing API Key for ${endpoint}.`);
+  }
+
+  if (!baseURL || CUSTOM_BASE_URL.match(envVarRegex)) {
+    throw new Error(`Missing Base URL for ${endpoint}.`);
+  }
 
   if (userProvidesKey & !apiKey) {
     throw new Error(
@@ -64,14 +81,6 @@ const initializeClient = async ({ req, res, endpointOption, optionsOnly, overrid
         type: ErrorTypes.NO_BASE_URL,
       }),
     );
-  }
-
-  if (!apiKey) {
-    throw new Error(`${endpoint} API key not provided.`);
-  }
-
-  if (!baseURL) {
-    throw new Error(`${endpoint} Base URL not provided.`);
   }
 
   const cache = getLogStores(CacheKeys.TOKEN_CONFIG);
