@@ -210,17 +210,24 @@ class TokenExchangeManager {
   isOurAPI(baseURL) {
     if (!baseURL) return false;
     
-    const ourAPIPatterns = [
-      'localhost:8000',
-      'host.docker.internal:8000',
-      'bizneuron-api',
-      'openaiagent',
-      '127.0.0.1:8000',
-      '0.0.0.0:8000'
-    ];
-    
-    const lowerURL = baseURL.toLowerCase();
-    return ourAPIPatterns.some(pattern => lowerURL.includes(pattern));
+    try {
+      const url = new URL(baseURL);
+      const host = url.host.toLowerCase();
+      
+      // Get allowed hosts from env variable or use defaults
+      
+      
+      const isAllowed = allowedHosts.includes(host);
+      
+      if (!isAllowed) {
+        console.debug(`[TokenExchangeManager] Host ${host} not in allowed list: ${allowedHosts.join(', ')}`);
+      }
+      
+      return isAllowed;
+    } catch (error) {
+      console.error('[TokenExchangeManager] Invalid URL:', baseURL, error);
+      return false;
+    }
   }
 
   /**
