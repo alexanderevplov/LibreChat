@@ -65,6 +65,87 @@ const startServer = async () => {
     console.warn('Response compression has been disabled via DISABLE_COMPRESSION.');
   }
 
+  // Proxy Admin Panel requests - MUST be before static file serving
+  app.use('/admin-panel', async (req, res, next) => {
+    try {
+      // Ensure we have /admin-panel prefix in the target URL
+      const targetPath = req.originalUrl || req.url;
+      
+      // Redirect /admin-panel to /admin-panel/ if no trailing slash
+      if (targetPath === '/admin-panel') {
+        return res.redirect('/admin-panel/');
+      }
+      
+      // Use host.docker.internal when running in Docker container
+      const targetHost = process.env.DOCKER_INTERNAL_HOST || 'host.docker.internal';
+      const targetUrl = `http://${targetHost}:3082${targetPath}`;
+      
+      // Forward cookies and authorization headers for SSO
+      const headers = {
+        ...req.headers,
+        host: `${targetHost}:3082`,
+        // Preserve cookie and authorization headers
+        cookie: req.headers.cookie || '',
+        authorization: req.headers.authorization || ''
+      };
+      
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        const response = await axios({
+          method: req.method,
+          url: targetUrl,
+          headers: headers,
+          responseType: 'stream',
+          // Don't follow redirects automatically to preserve auth flow
+          maxRedirects: 0,
+          validateStatus: (status) => status < 500
+        });
+        
+        // Copy response headers
+        Object.keys(response.headers).forEach(key => {
+          res.set(key, response.headers[key]);
+        });
+        
+        // Set status
+        res.status(response.status);
+        
+        // Stream response
+        response.data.pipe(res);
+      } else {
+        // For POST, PUT, etc.
+        const response = await axios({
+          method: req.method,
+          url: targetUrl,
+          data: req.body,
+          headers: headers,
+          responseType: 'stream',
+          maxRedirects: 0,
+          validateStatus: (status) => status < 500
+        });
+        
+        // Copy response headers
+        Object.keys(response.headers).forEach(key => {
+          res.set(key, response.headers[key]);
+        });
+        
+        // Set status
+        res.status(response.status);
+        
+        // Stream response
+        response.data.pipe(res);
+      }
+    } catch (error) {
+      console.error('Admin Panel proxy error:', error.message || error);
+      console.error('Error details:', error.code, error.stack);
+      if (error.response) {
+        res.status(error.response.status).send(error.response.data);
+      } else if (error.code === 'ECONNREFUSED') {
+        res.status(503).send('Admin Panel service is not available. Please ensure it is running on port 3082.');
+      } else {
+        res.status(500).send('Proxy error: ' + (error.message || 'Unknown error'));
+      }
+    }
+  });
+
   // Serve static assets with aggressive caching
   app.use(staticCache(app.locals.paths.dist));
   app.use(staticCache(app.locals.paths.fonts));

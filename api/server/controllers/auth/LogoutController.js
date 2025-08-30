@@ -27,7 +27,28 @@ const logoutController = async (req, res) => {
           ? openIdConfig.serverMetadata().end_session_endpoint
           : null;
         if (endSessionEndpoint) {
-          response.redirect = endSessionEndpoint;
+          // Формируем правильный URL для глобального logout с параметрами
+          const url = new URL(endSessionEndpoint);
+          const params = new URLSearchParams();
+          
+          // Добавляем client_id для идентификации клиента
+          if (process.env.OPENID_CLIENT_ID) {
+            params.set('client_id', process.env.OPENID_CLIENT_ID);
+          }
+          
+          // Добавляем URL для редиректа после logout
+          if (process.env.DOMAIN_SERVER) {
+            params.set('post_logout_redirect_uri', `${process.env.DOMAIN_SERVER}/login?redirect=false`);
+          }
+          
+          // Добавляем id_token для точной идентификации сессии (если доступен)
+          const idToken = req.user && req.user.tokenset && req.user.tokenset.id_token;
+          if (idToken) {
+            params.set('id_token_hint', idToken);
+          }
+          
+          url.search = params.toString();
+          response.redirect = url.toString();
         } else {
           logger.warn(
             '[logoutController] end_session_endpoint not found in OpenID issuer metadata. Please verify that the issuer is correct.',

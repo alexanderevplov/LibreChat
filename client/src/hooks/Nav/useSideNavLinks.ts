@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Blocks, MCPIcon, AttachmentIcon } from '@librechat/client';
-import { MessageSquareQuote, ArrowRightToLine, Settings2, Database, Bookmark } from 'lucide-react';
+import { MessageSquareQuote, ArrowRightToLine, Settings2, Database, Bookmark, Settings, Cog } from 'lucide-react';
 import {
   isAssistantsEndpoint,
   isAgentsEndpoint,
@@ -167,6 +167,26 @@ export default function useSideNavLinks({
         icon: MCPIcon,
         id: 'mcp-settings',
         Component: MCPPanel,
+      });
+    }
+
+    // Agent Admin Panel button - only show if configured
+    if ((interfaceConfig as any)?.agentAdmin?.enabled && (interfaceConfig as any)?.agentAdmin?.url) {
+      links.push({
+        title: 'com_nav_settings', // Using existing localization key
+        label: (interfaceConfig as any).agentAdmin.label || 'Agent Admin',
+        icon: Cog,
+        onClick: () => {
+          const url = (interfaceConfig as any).agentAdmin.url;
+          if (url.startsWith('/')) {
+            // Relative URL - navigate in same window
+            window.location.href = url;
+          } else {
+            // External URL - open in new tab
+            window.open(url, '_blank');
+          }
+        },
+        id: 'agent-admin-panel',
       });
     }
 
