@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizNeuron SSO Portal</title>
+    <script src="/sso-portal/keycloak.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 10px;
+            background: #f5f5f5;
+        }
+        
+        .status.checking {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .status.authenticated {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .apps {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .apps.visible {
+            display: block;
+        }
+        
+        .apps h3 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .app-buttons {
+            display: flex;
+            gap: 15px;
+            flex-direction: column;
+        }
+        
+        .app-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: block;
+        }
+        
+        .app-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .app-btn.secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .app-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .login-btn {
+            display: none;
+            width: 100%;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .login-btn.visible {
+            display: block;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .user-info {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .user-info.visible {
+            display: block;
+        }
+        
+        .user-info p {
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .logout-btn {
+            margin-top: 15px;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #f44336;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🚀 BizNeuron</h1>
+            <p>Single Sign-On Portal</p>
+        </div>
+        
+        <div id="status" class="status checking">
+            <div class="spinner"></div>
+            <p>Checking authentication status...</p>
+        </div>
+        
+        <button id="loginBtn" class="login-btn" onclick="login()">
+            Sign In with BizNeuron
+        </button>
+        
+        <div id="userInfo" class="user-info">
+            <p><strong>Welcome!</strong></p>
+            <p id="userName"></p>
+            <p id="userEmail"></p>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+        
+        <div id="apps" class="apps">
+            <h3>Choose Application:</h3>
+            <div class="app-buttons">
+                <a href="https://dev.bizneuron.local/" class="app-btn primary">
+                    💬 LibreChat
+                </a>
+                <a href="https://dev.bizneuron.local/admin-panel/" class="app-btn secondary">
+                    ⚙️ Admin Panel
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Keycloak configuration
+        const keycloak = new Keycloak({
+            url: 'https://dev.bizneuron.local/auth',
+            realm: 'bizneuron',
+            clientId: 'sso-portal'  // We'll need to create this client in Keycloak
+        });
+
+        // Initialize Keycloak
+        keycloak.init({
+            onLoad: 'check-sso',
+            silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
+            checkLoginIframe: true,
+            checkLoginIframeInterval: 5
+        }).then(function(authenticated) {
+            updateUI(authenticated);
+            
+            // If authenticated and came with redirect parameter, redirect immediately
+            if (authenticated) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirect = urlParams.get('redirect');
+                if (redirect === 'librechat') {
+                    window.location.href = 'https://dev.bizneuron.local/';
+                } else if (redirect === 'admin') {
+                    window.location.href = 'https://dev.bizneuron.local/admin-panel/';
+                }
+            }
+        }).catch(function(error) {
+            console.error('Failed to initialize Keycloak', error);
+            showError('Failed to initialize authentication system');
+        });
+
+        function updateUI(authenticated) {
+            const statusEl = document.getElementById('status');
+            const loginBtn = document.getElementById('loginBtn');
+            const appsEl = document.getElementById('apps');
+            const userInfoEl = document.getElementById('userInfo');
+            
+            if (authenticated) {
+                statusEl.className = 'status authenticated';
+                statusEl.innerHTML = '<p>✅ You are authenticated!</p>';
+                loginBtn.classList.remove('visible');
+                appsEl.classList.add('visible');
+                
+                // Show user info
+                if (keycloak.tokenParsed) {
+                    document.getElementById('userName').textContent = 
+                        keycloak.tokenParsed.name || keycloak.tokenParsed.preferred_username || 'User';
+                    document.getElementById('userEmail').textContent = 
+                        keycloak.tokenParsed.email || '';
+                    userInfoEl.classList.add('visible');
+                }
+                
+                // Check if KEYCLOAK_SESSION cookie is present
+                console.log('KEYCLOAK_SESSION cookie present:', document.cookie.includes('KEYCLOAK_SESSION'));
+                console.log('All cookies:', document.cookie);
+            } else {
+                statusEl.className = 'status';
+                statusEl.innerHTML = '<p>Please sign in to continue</p>';
+                loginBtn.classList.add('visible');
+                appsEl.classList.remove('visible');
+                userInfoEl.classList.remove('visible');
+            }
+        }
+
+        function showError(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status error';
+            statusEl.innerHTML = '<p>❌ ' + message + '</p>';
+        }
+
+        function login() {
+            keycloak.login();
+        }
+
+        function logout() {
+            keycloak.logout({
+                redirectUri: window.location.origin + window.location.pathname
+            });
+        }
+
+        // Auto-refresh token
+        setInterval(function() {
+            keycloak.updateToken(30).then(function(refreshed) {
+                if (refreshed) {
+                    console.log('Token refreshed');
+                }
+            }).catch(function() {
+                console.error('Failed to refresh token');
+            });
+        }, 60000); // Check every minute
+    </script>
+</body>
+</html>

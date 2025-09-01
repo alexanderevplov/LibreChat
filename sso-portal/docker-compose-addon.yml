@@ -1,0 +1,10 @@
+# Add this to your main docker-compose.yml or use as override with:
+# docker compose -f docker-compose.yml -f sso-portal/docker-compose-addon.yml up -d
+
+version: '3.8'
+
+services:
+  nginx:
+    volumes:
+      # Mount SSO Portal files
+      - ./sso-portal:/app/sso-portal:ro
